@@ -4,18 +4,18 @@ import pandas as pd
 
 # --- CONFIGURATION ---
 # Plug in your actual Gemini API Key inside the quotes below
-genai.configure(api_key=st.secrets)
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 # Set up the main page layout
 st.set_page_config(page_title="Agro-Agent Dashboard", layout="wide")
 
 # --- INITIALIZE REAL-TIME DATABASE STATES ---
 if 'farmers_assisted' not in st.session_state:
-    st.session_state['farmers_assisted'] = 142
+    st.session_state['farmers_assisted'] = 0
 
-# 142 farmers * ₦2,500 commission = 355,000
+# 0 farmers * ₦2,500 commission = 0
 if 'agent_revenue' not in st.session_state:
-    st.session_state['agent_revenue'] = 355000
+    st.session_state['agent_revenue'] = 0
 
 if 'farm_data' not in st.session_state:
     st.session_state['farm_data'] = pd.DataFrame(columns=["Farmer Name", "Size (Hectares)", "Soil Type", "Status"])
@@ -152,7 +152,7 @@ with st.sidebar:
     st.divider()
     
     st.write("Agent Performance")
-    st.metric(label="Farmers Assisted", value=str(st.session_state['farmers_assisted']), delta="12 this week")
+    st.metric(label="Farmers Assisted", value=str(st.session_state['farmers_assisted']))
     
-    # Formats the revenue with commas (e.g., 355,000)
-    st.metric(label="Wallet (₦2.5k / Farmer)", value=f"₦{st.session_state['agent_revenue']:,}", delta="₦30,000 this week")
+    # Formats the revenue with commas (e.g., 2,500)
+    st.metric(label="Wallet (₦2.5k / Farmer)", value=f"₦{st.session_state['agent_revenue']:,}")
