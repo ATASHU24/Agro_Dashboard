@@ -3,6 +3,7 @@ import google.generativeai as genai
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="ATA INNOVATE HUB", layout="wide")
@@ -11,7 +12,11 @@ genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 # --- GOOGLE SHEETS CONNECTION ---
 scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
          "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+
+# Read the secret from Streamlit's vault and convert it back to a dictionary
+creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+
 client = gspread.authorize(creds)
 sheet = client.open("ATA_Agro_Database").sheet1
 
