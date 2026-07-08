@@ -22,7 +22,6 @@ client = gspread.authorize(creds)
 sheet = client.open("ATA_Agro_Database").sheet1
 
 # --- SECURE AGENT DATABASE ---
-# Passwords are now pulled securely from the Streamlit vault
 VALID_AGENTS = {
     "alpha": {"name": "Youth Agent Alpha", "password": st.secrets["AGENT_ALPHA_PASS"], "region": "Taraba", "lat": 8.89, "lon": 11.36}, 
     "beta": {"name": "Youth Agent Beta", "password": st.secrets["AGENT_BETA_PASS"], "region": "Benue", "lat": 7.73, "lon": 8.52} 
@@ -69,10 +68,9 @@ def fetch_market_prices():
 
 # --- AI BACKEND ---
 def generate_local_advice(query, target_language, region, live_weather, market_prices):
-    # Increased token limit from 150 to 400 to prevent mid-sentence cutoff
-    model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"max_output_tokens": 400})
+    # Upgraded token limit to 800 to ensure full, detailed translations
+    model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"max_output_tokens": 800})
     
-    # Translate the price dictionary into a readable sentence for the AI
     market_context = ", ".join([f"{crop} at {data['price']}" for crop, data in market_prices.items()]) if market_prices else "Prices currently unavailable"
     
     system_instruction = f"""
@@ -81,8 +79,12 @@ def generate_local_advice(query, target_language, region, live_weather, market_p
     The current weather there is: {live_weather}.
     The current local market prices are: {market_context}.
     Use this local context to give practical, hyper-local agricultural advice.
-    CRITICAL: Keep your response concise, clear, and highly actionable. Answer the specific question asked.
-    Respond in {target_language}.
+    
+    CRITICAL FORMATTING INSTRUCTIONS:
+    1. Provide a brief 1-sentence introduction.
+    2. Follow immediately with 3 to 4 actionable bullet points explaining the cause and solutions.
+    3. Never cut off your response mid-sentence.
+    4. Provide the entire response accurately in {target_language}.
     """
     
     try:
@@ -119,8 +121,11 @@ def main_dashboard():
     market_prices = fetch_market_prices()
     
     st.title("ATA INNOVATE HUB - Agro-Agent Dashboard")
+    
+    # The tabs are declared here
     tab1, tab2, tab3 = st.tabs(["🤖 AI Command Center", "📈 Regional Data", "📝 Log Field Data"])
 
+    # ALL TAB 1 CONTENT (Strictly Indented)
     with tab1:
         lang = st.selectbox("Language:", ["English", "Hausa", "Pidgin English", "Fulfulde"])
         query = st.text_area("Field Assistant Query:")
@@ -129,6 +134,7 @@ def main_dashboard():
                 advice = generate_local_advice(query, lang, agent['region'], live_weather, market_prices)
                 st.write(advice)
 
+    # ALL TAB 2 CONTENT (Strictly Indented)
     with tab2:
         st.subheader(f"Live Intelligence: {agent['region']} State")
         st.metric("Current Weather", live_weather)
@@ -136,13 +142,13 @@ def main_dashboard():
         st.divider()
         st.subheader("Market Prices")
         if market_prices:
-            # Automatically creates a grid for however many crops you add to the Google Sheet
             cols = st.columns(3)
             for i, (crop, data) in enumerate(market_prices.items()):
                 cols[i % 3].metric(crop, data["price"], data["trend"])
         else:
             st.info("Market pricing sheet is empty or unavailable.")
 
+    # ALL TAB 3 CONTENT (Strictly Indented)
     with tab3:
         st.subheader("Register Farmer")
         with st.form("farmer_form", clear_on_submit=True):
