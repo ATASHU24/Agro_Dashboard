@@ -21,10 +21,11 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 sheet = client.open("ATA_Agro_Database").sheet1
 
-# --- AGENT DATABASE ---
+# --- SECURE AGENT DATABASE ---
+# Passwords are now pulled securely from the Streamlit vault
 VALID_AGENTS = {
-    "alpha": {"name": "Youth Agent Alpha", "password": "123", "region": "Taraba", "lat": 8.89, "lon": 11.36}, 
-    "beta": {"name": "Youth Agent Beta", "password": "456", "region": "Benue", "lat": 7.73, "lon": 8.52} 
+    "alpha": {"name": "Youth Agent Alpha", "password": st.secrets["AGENT_ALPHA_PASS"], "region": "Taraba", "lat": 8.89, "lon": 11.36}, 
+    "beta": {"name": "Youth Agent Beta", "password": st.secrets["AGENT_BETA_PASS"], "region": "Benue", "lat": 7.73, "lon": 8.52} 
 }
 
 if 'logged_in' not in st.session_state:
@@ -49,32 +50,38 @@ def fetch_regional_weather(lat, lon):
     except Exception as e:
         return f"System Error: {str(e)}"
 
-# THIS IS THE NEW PRICING ENGINE
 @st.cache_data(ttl=timedelta(hours=2))
 def fetch_market_prices():
     try:
         price_sheet = client.open("ATA_Agro_Database").worksheet("Market_Prices")
         records = price_sheet.get_all_records()
+        prices = {}
         for row in records:
-            if str(row.get('Crop', '')).strip().lower() == 'maize':
-                return str(row.get('Price', 'N/A')), str(row.get('Trend', ''))
-        return "Update Sheet", ""
-    except Exception as e:
-        if "WorksheetNotFound" in str(e):
-            return "Missing 'Market_Prices' Tab", ""
-        return "Offline", ""
+            crop_name = str(row.get('Crop', '')).strip().title()
+            if crop_name:
+                prices[crop_name] = {
+                    "price": str(row.get('Price', 'N/A')),
+                    "trend": str(row.get('Trend', ''))
+                }
+        return prices
+    except Exception:
+        return {}
 
 # --- AI BACKEND ---
-def generate_local_advice(query, target_language, region, live_weather, maize_price):
-    model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"max_output_tokens": 150})
+def generate_local_advice(query, target_language, region, live_weather, market_prices):
+    # Increased token limit from 150 to 400 to prevent mid-sentence cutoff
+    model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"max_output_tokens": 400})
+    
+    # Translate the price dictionary into a readable sentence for the AI
+    market_context = ", ".join([f"{crop} at {data['price']}" for crop, data in market_prices.items()]) if market_prices else "Prices currently unavailable"
     
     system_instruction = f"""
     You are the AI Command Center for ATA INNOVATE HUB. 
     The agent asking you this is currently in {region} State. 
     The current weather there is: {live_weather}.
-    The current local market price for Maize is {maize_price}.
+    The current local market prices are: {market_context}.
     Use this local context to give practical, hyper-local agricultural advice.
-    CRITICAL: Keep your response under 3 bullet points. Be direct. No long intros.
+    CRITICAL: Keep your response concise, clear, and highly actionable. Answer the specific question asked.
     Respond in {target_language}.
     """
     
@@ -109,7 +116,7 @@ def main_dashboard():
     agent = st.session_state['current_agent']
     
     live_weather = fetch_regional_weather(agent['lat'], agent['lon'])
-    maize_price, maize_trend = fetch_market_prices()
+    market_prices = fetch_market_prices()
     
     st.title("ATA INNOVATE HUB - Agro-Agent Dashboard")
     tab1, tab2, tab3 = st.tabs(["🤖 AI Command Center", "📈 Regional Data", "📝 Log Field Data"])
@@ -119,14 +126,22 @@ def main_dashboard():
         query = st.text_area("Field Assistant Query:")
         if st.button("Analyze Data"):
             with st.spinner("Analyzing local conditions..."):
-                advice = generate_local_advice(query, lang, agent['region'], live_weather, maize_price)
+                advice = generate_local_advice(query, lang, agent['region'], live_weather, market_prices)
                 st.write(advice)
 
     with tab2:
         st.subheader(f"Live Intelligence: {agent['region']} State")
-        col1, col2 = st.columns(2)
-        col1.metric("Current Weather", live_weather)
-        col2.metric("Maize Price", maize_price, maize_trend)
+        st.metric("Current Weather", live_weather)
+        
+        st.divider()
+        st.subheader("Market Prices")
+        if market_prices:
+            # Automatically creates a grid for however many crops you add to the Google Sheet
+            cols = st.columns(3)
+            for i, (crop, data) in enumerate(market_prices.items()):
+                cols[i % 3].metric(crop, data["price"], data["trend"])
+        else:
+            st.info("Market pricing sheet is empty or unavailable.")
 
     with tab3:
         st.subheader("Register Farmer")
