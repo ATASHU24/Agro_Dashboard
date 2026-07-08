@@ -66,32 +66,37 @@ def fetch_market_prices():
     except Exception:
         return {}
 
-# --- AI BACKEND ---
-def generate_local_advice(query, target_language, region, live_weather, market_prices):
-    # Upgraded token limit to 800 to ensure full, detailed translations
-    model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"max_output_tokens": 800})
+# --- AI BACKEND (TOKEN BURN PROTECTION ENABLED) ---
+
+# We cache this function! If an agent asks a repeated question, it costs 0 tokens.
+@st.cache_data(ttl=timedelta(days=1), show_spinner=False)
+def call_gemini_api(query, target_language, region, live_weather, market_context):
+    sys_instruct = f"""
+    You are the Chief Agricultural Advisor for ATA INNOVATE HUB. 
+    Agent Location: {region} State. Weather: {live_weather}. Prices: {market_context}.
     
-    market_context = ", ".join([f"{crop} at {data['price']}" for crop, data in market_prices.items()]) if market_prices else "Prices currently unavailable"
-    
-    system_instruction = f"""
-    You are the AI Command Center for ATA INNOVATE HUB. 
-    The agent asking you this is currently in {region} State. 
-    The current weather there is: {live_weather}.
-    The current local market prices are: {market_context}.
-    Use this local context to give practical, hyper-local agricultural advice.
-    
-    CRITICAL FORMATTING INSTRUCTIONS:
-    1. Provide a brief 1-sentence introduction.
-    2. Follow immediately with 3 to 4 actionable bullet points explaining the cause and solutions.
-    3. Never cut off your response mid-sentence.
-    4. Provide the entire response accurately in {target_language}.
+    CRITICAL RULES TO SAVE TOKENS & ENSURE COMPLETENESS:
+    1. Be brutally concise. Your entire response MUST NOT exceed 100 words.
+    2. Structure: Provide EXACTLY one short introductory sentence diagnosing the issue, followed by EXACTLY 3 short bullet points of actionable advice.
+    3. Do not include any polite fluff, disclaimers, or closing remarks.
+    4. Provide the exact response translated flawlessly into {target_language}.
     """
-    
     try:
-        response = model.generate_content(system_instruction + query)
+        model = genai.GenerativeModel(
+            'gemini-1.5-flash', 
+            system_instruction=sys_instruct,
+            # 250 is the safety net. It gives the AI room to finish without getting chopped off.
+            generation_config={"max_output_tokens": 250} 
+        )
+        response = model.generate_content(query)
         return response.text
     except Exception as e:
-        return "System temporarily offline. Standard protocols apply."
+        return f"🚨 AI Processing Error: {str(e)}"
+
+def generate_local_advice(query, target_language, region, live_weather, market_prices):
+    # Convert dictionary to a string so Streamlit can cache it securely
+    market_context = ", ".join([f"{c} at {d['price']}" for c, d in market_prices.items()]) if market_prices else "Unavailable"
+    return call_gemini_api(query, target_language, region, live_weather, market_context)
 
 # --- DATABASE FUNCTION ---
 def save_to_sheet(agent_name, farmer_name, size, crop):
@@ -122,19 +127,19 @@ def main_dashboard():
     
     st.title("ATA INNOVATE HUB - Agro-Agent Dashboard")
     
-    # The tabs are declared here
     tab1, tab2, tab3 = st.tabs(["🤖 AI Command Center", "📈 Regional Data", "📝 Log Field Data"])
 
-    # ALL TAB 1 CONTENT (Strictly Indented)
     with tab1:
         lang = st.selectbox("Language:", ["English", "Hausa", "Pidgin English", "Fulfulde"])
         query = st.text_area("Field Assistant Query:")
         if st.button("Analyze Data"):
-            with st.spinner("Analyzing local conditions..."):
-                advice = generate_local_advice(query, lang, agent['region'], live_weather, market_prices)
-                st.write(advice)
+            if not query.strip():
+                st.warning("Please enter a query.")
+            else:
+                with st.spinner("Analyzing local conditions..."):
+                    advice = generate_local_advice(query, lang, agent['region'], live_weather, market_prices)
+                    st.write(advice)
 
-    # ALL TAB 2 CONTENT (Strictly Indented)
     with tab2:
         st.subheader(f"Live Intelligence: {agent['region']} State")
         st.metric("Current Weather", live_weather)
@@ -148,7 +153,6 @@ def main_dashboard():
         else:
             st.info("Market pricing sheet is empty or unavailable.")
 
-    # ALL TAB 3 CONTENT (Strictly Indented)
     with tab3:
         st.subheader("Register Farmer")
         with st.form("farmer_form", clear_on_submit=True):
