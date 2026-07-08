@@ -31,16 +31,14 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
     st.session_state['current_agent'] = None
 
-# --- LIVE DATA FETCHING (WITH ERROR EXPOSURE) ---
+# --- LIVE DATA FETCHING ---
 @st.cache_data(ttl=timedelta(hours=12))
 def fetch_regional_weather(lat, lon):
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
-        # Adding a User-Agent acts like a VIP pass so the API doesn't block the request
         headers = {"User-Agent": "ATA_Innovate_Hub_Field_App/1.0"}
         response = requests.get(url, headers=headers, timeout=10)
         
-        # If the API rejects us, this will print the exact rejection code
         if response.status_code != 200:
             return f"API Blocked (Error {response.status_code})"
             
@@ -49,18 +47,33 @@ def fetch_regional_weather(lat, lon):
         wind = data['current_weather']['windspeed']
         return f"{temp}°C, Wind: {wind} km/h"
     except Exception as e:
-        # If the code crashes, this prints the literal Python error on your screen
         return f"System Error: {str(e)}"
 
+# THIS IS THE NEW PRICING ENGINE
+@st.cache_data(ttl=timedelta(hours=2))
+def fetch_market_prices():
+    try:
+        price_sheet = client.open("ATA_Agro_Database").worksheet("Market_Prices")
+        records = price_sheet.get_all_records()
+        for row in records:
+            if str(row.get('Crop', '')).strip().lower() == 'maize':
+                return str(row.get('Price', 'N/A')), str(row.get('Trend', ''))
+        return "Update Sheet", ""
+    except Exception as e:
+        if "WorksheetNotFound" in str(e):
+            return "Missing 'Market_Prices' Tab", ""
+        return "Offline", ""
+
 # --- AI BACKEND ---
-def generate_local_advice(query, target_language, region, live_weather):
+def generate_local_advice(query, target_language, region, live_weather, maize_price):
     model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"max_output_tokens": 150})
     
     system_instruction = f"""
     You are the AI Command Center for ATA INNOVATE HUB. 
     The agent asking you this is currently in {region} State. 
     The current weather there is: {live_weather}.
-    Use this local weather context to give practical, hyper-local agricultural advice.
+    The current local market price for Maize is {maize_price}.
+    Use this local context to give practical, hyper-local agricultural advice.
     CRITICAL: Keep your response under 3 bullet points. Be direct. No long intros.
     Respond in {target_language}.
     """
@@ -96,6 +109,7 @@ def main_dashboard():
     agent = st.session_state['current_agent']
     
     live_weather = fetch_regional_weather(agent['lat'], agent['lon'])
+    maize_price, maize_trend = fetch_market_prices()
     
     st.title("ATA INNOVATE HUB - Agro-Agent Dashboard")
     tab1, tab2, tab3 = st.tabs(["🤖 AI Command Center", "📈 Regional Data", "📝 Log Field Data"])
@@ -105,14 +119,14 @@ def main_dashboard():
         query = st.text_area("Field Assistant Query:")
         if st.button("Analyze Data"):
             with st.spinner("Analyzing local conditions..."):
-                advice = generate_local_advice(query, lang, agent['region'], live_weather)
+                advice = generate_local_advice(query, lang, agent['region'], live_weather, maize_price)
                 st.write(advice)
 
     with tab2:
         st.subheader(f"Live Intelligence: {agent['region']} State")
         col1, col2 = st.columns(2)
         col1.metric("Current Weather", live_weather)
-        col2.metric("Maize Price (Est)", "₦450,000", "5.2%")
+        col2.metric("Maize Price", maize_price, maize_trend)
 
     with tab3:
         st.subheader("Register Farmer")
