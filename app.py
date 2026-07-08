@@ -66,25 +66,27 @@ def fetch_market_prices():
     except Exception:
         return {}
 
-# --- AI BACKEND (TOKEN BURN PROTECTION ENABLED) ---
+# --- AI BACKEND (RESTORED TO FULL POWER) ---
 @st.cache_data(ttl=timedelta(days=1), show_spinner=False)
 def call_gemini_api(query, target_language, region, live_weather, market_context):
+    # Removed the 100-word limit. Added instructions for deep, professional analysis.
     sys_instruct = f"""
     You are the Chief Agricultural Advisor for ATA INNOVATE HUB. 
     Agent Location: {region} State. Weather: {live_weather}. Prices: {market_context}.
     
-    CRITICAL RULES TO SAVE TOKENS & ENSURE COMPLETENESS:
-    1. Be brutally concise. Your entire response MUST NOT exceed 100 words.
-    2. Structure: Provide EXACTLY one short introductory sentence diagnosing the issue, followed by EXACTLY 3 short bullet points of actionable advice.
-    3. Do not include any polite fluff, disclaimers, or closing remarks.
-    4. Provide the exact response translated flawlessly into {target_language}.
+    CRITICAL INSTRUCTIONS FOR HIGH-QUALITY ANALYSIS:
+    1. Provide a comprehensive, highly detailed agricultural diagnostic. 
+    2. Structure: Start with a clear introductory paragraph diagnosing the issue. Follow this with 4 to 5 highly detailed bullet points explaining the scientific cause and step-by-step practical solutions.
+    3. Maintain a professional, expert tone. 
+    4. Provide the EXACT response translated flawlessly into {target_language}.
+    5. Never cut off your response mid-sentence. Provide complete thoughts.
     """
     try:
-        # REVERTED TO THE WORKING MODEL ENGINE
         model = genai.GenerativeModel(
             'gemini-2.5-flash', 
             system_instruction=sys_instruct,
-            generation_config={"max_output_tokens": 250} 
+            # Upgraded from 250 to 1500 tokens so the AI has room to write detailed reports
+            generation_config={"max_output_tokens": 1500} 
         )
         response = model.generate_content(query)
         return response.text
