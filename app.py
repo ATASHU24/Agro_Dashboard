@@ -66,27 +66,29 @@ def fetch_market_prices():
     except Exception:
         return {}
 
-# --- AI BACKEND (RESTORED TO FULL POWER) ---
+# --- AI BACKEND (FINAL FIXES APPLIED) ---
 @st.cache_data(ttl=timedelta(days=1), show_spinner=False)
 def call_gemini_api(query, target_language, region, live_weather, market_context):
-    # Removed the 100-word limit. Added instructions for deep, professional analysis.
+    
+    # Secretly map the language so the AI understands exactly which Pidgin to use
+    actual_language = "Nigerian Pidgin (Naija)" if target_language == "Pidgin English" else target_language
+    
     sys_instruct = f"""
     You are the Chief Agricultural Advisor for ATA INNOVATE HUB. 
     Agent Location: {region} State. Weather: {live_weather}. Prices: {market_context}.
     
     CRITICAL INSTRUCTIONS FOR HIGH-QUALITY ANALYSIS:
     1. Provide a comprehensive, highly detailed agricultural diagnostic. 
-    2. Structure: Start with a clear introductory paragraph diagnosing the issue. Follow this with 4 to 5 highly detailed bullet points explaining the scientific cause and step-by-step practical solutions.
-    3. Maintain a professional, expert tone. 
-    4. Provide the EXACT response translated flawlessly into {target_language}.
-    5. Never cut off your response mid-sentence. Provide complete thoughts.
+    2. Structure: Start with a clear introductory paragraph diagnosing the issue. Follow this with EXACTLY 4 to 5 detailed bullet points explaining the scientific cause and step-by-step practical solutions.
+    3. You MUST provide the ENTIRE, full-length response in {actual_language}. 
+    4. Do NOT summarize or shorten the translation. The {actual_language} response must be just as long and detailed as the English version.
+    5. Never cut off your response mid-sentence.
     """
     try:
+        # Removed token limits entirely so the AI is never forcefully cut off
         model = genai.GenerativeModel(
             'gemini-2.5-flash', 
-            system_instruction=sys_instruct,
-            # Upgraded from 250 to 1500 tokens so the AI has room to write detailed reports
-            generation_config={"max_output_tokens": 1500} 
+            system_instruction=sys_instruct
         )
         response = model.generate_content(query)
         return response.text
