@@ -23,33 +23,39 @@ sheet = client.open("ATA_Agro_Database").sheet1
 
 # --- AGENT DATABASE ---
 VALID_AGENTS = {
-    "alpha": {"name": "Youth Agent Alpha", "password": "123", "region": "Taraba", "lat": 8.89, "lon": 11.36}, # Jalingo coords
-    "beta": {"name": "Youth Agent Beta", "password": "456", "region": "Benue", "lat": 7.73, "lon": 8.52} # Makurdi coords
+    "alpha": {"name": "Youth Agent Alpha", "password": "123", "region": "Taraba", "lat": 8.89, "lon": 11.36}, 
+    "beta": {"name": "Youth Agent Beta", "password": "456", "region": "Benue", "lat": 7.73, "lon": 8.52} 
 }
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
     st.session_state['current_agent'] = None
 
-# --- LIVE DATA FETCHING (CACHED TO SAVE TOKENS) ---
+# --- LIVE DATA FETCHING (WITH ERROR EXPOSURE) ---
 @st.cache_data(ttl=timedelta(hours=12))
 def fetch_regional_weather(lat, lon):
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
-        response = requests.get(url)
+        # Adding a User-Agent acts like a VIP pass so the API doesn't block the request
+        headers = {"User-Agent": "ATA_Innovate_Hub_Field_App/1.0"}
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        # If the API rejects us, this will print the exact rejection code
+        if response.status_code != 200:
+            return f"API Blocked (Error {response.status_code})"
+            
         data = response.json()
         temp = data['current_weather']['temperature']
         wind = data['current_weather']['windspeed']
         return f"{temp}°C, Wind: {wind} km/h"
-    except:
-        return "Weather tracking temporarily offline"
+    except Exception as e:
+        # If the code crashes, this prints the literal Python error on your screen
+        return f"System Error: {str(e)}"
 
-# --- AI BACKEND (WITH CONTEXT INJECTION & TOKEN LIMITS) ---
+# --- AI BACKEND ---
 def generate_local_advice(query, target_language, region, live_weather):
-    # We use max_output_tokens to force short, cheap answers!
     model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"max_output_tokens": 150})
     
-    # We inject the local data secretly into the AI's brain
     system_instruction = f"""
     You are the AI Command Center for ATA INNOVATE HUB. 
     The agent asking you this is currently in {region} State. 
@@ -89,7 +95,6 @@ def login_screen():
 def main_dashboard():
     agent = st.session_state['current_agent']
     
-    # 1. FETCH LIVE DATA (Happens instantly from memory if already checked today)
     live_weather = fetch_regional_weather(agent['lat'], agent['lon'])
     
     st.title("ATA INNOVATE HUB - Agro-Agent Dashboard")
@@ -100,7 +105,6 @@ def main_dashboard():
         query = st.text_area("Field Assistant Query:")
         if st.button("Analyze Data"):
             with st.spinner("Analyzing local conditions..."):
-                # 2. INJECT DATA INTO AI
                 advice = generate_local_advice(query, lang, agent['region'], live_weather)
                 st.write(advice)
 
@@ -120,9 +124,14 @@ def main_dashboard():
                 save_to_sheet(agent['name'], f_name, f_size, f_crop)
                 st.success(f"Data for {f_name} saved securely to cloud!")
 
+    # --- SIDEBAR ---
     with st.sidebar:
         st.write(f"**Agent:** {agent['name']}")
         st.write(f"**Operating Region:** {agent['region']}")
+        st.divider()
+        st.metric("Live Regional Weather", live_weather) 
+        st.divider()
+        
         if st.button("Log Out"):
             st.session_state['logged_in'] = False
             st.rerun()
