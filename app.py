@@ -8,7 +8,7 @@ import requests
 from datetime import timedelta
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="ATA INNOVATE HUB", layout="wide")
+st.set_page_config(page_title="AGRO AGENT DASHBOARD", layout="wide")
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 # --- GOOGLE SHEETS CONNECTION ---
@@ -67,8 +67,6 @@ def fetch_market_prices():
         return {}
 
 # --- AI BACKEND (TOKEN BURN PROTECTION ENABLED) ---
-
-# We cache this function! If an agent asks a repeated question, it costs 0 tokens.
 @st.cache_data(ttl=timedelta(days=1), show_spinner=False)
 def call_gemini_api(query, target_language, region, live_weather, market_context):
     sys_instruct = f"""
@@ -85,7 +83,6 @@ def call_gemini_api(query, target_language, region, live_weather, market_context
         model = genai.GenerativeModel(
             'gemini-1.5-flash', 
             system_instruction=sys_instruct,
-            # 250 is the safety net. It gives the AI room to finish without getting chopped off.
             generation_config={"max_output_tokens": 250} 
         )
         response = model.generate_content(query)
@@ -94,7 +91,6 @@ def call_gemini_api(query, target_language, region, live_weather, market_context
         return f"🚨 AI Processing Error: {str(e)}"
 
 def generate_local_advice(query, target_language, region, live_weather, market_prices):
-    # Convert dictionary to a string so Streamlit can cache it securely
     market_context = ", ".join([f"{c} at {d['price']}" for c, d in market_prices.items()]) if market_prices else "Unavailable"
     return call_gemini_api(query, target_language, region, live_weather, market_context)
 
@@ -106,7 +102,7 @@ def save_to_sheet(agent_name, farmer_name, size, crop):
 def login_screen():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.title("🔐 ATA INNOVATE HUB")
+        st.title("🔐 AGRO AGENT DASHBOARD")
         with st.form("login_form"):
             username = st.text_input("Username").lower()
             password = st.text_input("Password", type="password")
@@ -125,7 +121,7 @@ def main_dashboard():
     live_weather = fetch_regional_weather(agent['lat'], agent['lon'])
     market_prices = fetch_market_prices()
     
-    st.title("ATA INNOVATE HUB - Agro-Agent Dashboard")
+    st.title("AGRO AGENT DASHBOARD")
     
     tab1, tab2, tab3 = st.tabs(["🤖 AI Command Center", "📈 Regional Data", "📝 Log Field Data"])
 
