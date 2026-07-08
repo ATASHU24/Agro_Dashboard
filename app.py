@@ -80,8 +80,9 @@ def call_gemini_api(query, target_language, region, live_weather, market_context
     4. Provide the exact response translated flawlessly into {target_language}.
     """
     try:
+        # REVERTED TO THE WORKING MODEL ENGINE
         model = genai.GenerativeModel(
-            'gemini-1.5-flash', 
+            'gemini-2.5-flash', 
             system_instruction=sys_instruct,
             generation_config={"max_output_tokens": 250} 
         )
