@@ -11,26 +11,55 @@ from datetime import timedelta
 st.set_page_config(page_title="AGRO AGENT DASHBOARD", layout="wide")
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# --- UI ENTERPRISE UPGRADE (CSS INJECTION) ---
+# --- UI ENTERPRISE UPGRADE (PREMIUM CSS INJECTION) ---
 st.markdown("""
     <style>
+    /* Import a sleek, modern dashboard font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+    
     /* Hide the Streamlit default developer menu, header, and footer */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Tighten the top padding to maximize mobile screen space */
+    /* Tighten top padding, add heavy bottom padding to clear any floating developer buttons */
     .block-container {
         padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding-bottom: 100px; 
     }
     
-    /* Add a crisp, professional border to the live data metric cards */
+    /* Premium Metric Cards with ROJET-style polish */
     div[data-testid="metric-container"] {
-        border: 1px solid rgba(150, 150, 150, 0.2);
-        padding: 15px;
+        background-color: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.05);
+        border-left: 4px solid #1f77b4; 
+    }
+    
+    /* Dark mode support for metric cards */
+    @media (prefers-color-scheme: dark) {
+        div[data-testid="metric-container"] {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-left: 4px solid #4d94ff;
+        }
+    }
+    
+    /* Sleek, interactive Buttons */
+    .stButton>button, .stFormSubmitButton>button {
         border-radius: 8px;
-        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+        font-weight: 600;
+    }
+    .stButton>button:hover, .stFormSubmitButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -55,8 +84,8 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
     st.session_state['current_agent'] = None
 
-# --- LIVE DATA FETCHING ---
-@st.cache_data(ttl=timedelta(hours=12))
+# --- LIVE DATA FETCHING (SYNCED TO 1 HOUR FOR BETTER ACCURACY) ---
+@st.cache_data(ttl=timedelta(hours=1))
 def fetch_regional_weather(lat, lon):
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
