@@ -11,55 +11,59 @@ from datetime import timedelta
 st.set_page_config(page_title="AGRO AGENT DASHBOARD", layout="wide")
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# --- UI ENTERPRISE UPGRADE (PREMIUM CSS INJECTION) ---
+# --- UI ENTERPRISE UPGRADE (FORCED OVERRIDE CSS) ---
 st.markdown("""
     <style>
-    /* Import a sleek, modern dashboard font */
+    /* Import modern font and force Streamlit to use it everywhere */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+    
+    html, body, [class*="css"], [class*="st-"] {
+        font-family: 'Inter', sans-serif !important;
     }
     
-    /* Hide the Streamlit default developer menu, header, and footer */
+    /* Hide the developer menus */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Tighten top padding, add heavy bottom padding to clear any floating developer buttons */
+    /* Padding fix for mobile */
     .block-container {
-        padding-top: 2rem;
-        padding-bottom: 100px; 
+        padding-top: 1.5rem !important;
+        padding-bottom: 100px !important; 
     }
     
-    /* Premium Metric Cards with ROJET-style polish */
+    /* Force Sleek Metric Cards and fix the text cutoff */
     div[data-testid="metric-container"] {
-        background-color: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0px 4px 6px rgba(0,0,0,0.05);
-        border-left: 4px solid #1f77b4; 
+        background-color: #1e1e1e !important;
+        border: 1px solid #333 !important;
+        padding: 20px !important;
+        border-radius: 12px !important;
+        border-left: 4px solid #0078D7 !important;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.3) !important;
     }
     
-    /* Dark mode support for metric cards */
-    @media (prefers-color-scheme: dark) {
-        div[data-testid="metric-container"] {
-            background-color: #1e1e1e;
-            border: 1px solid #333;
-            border-left: 4px solid #4d94ff;
-        }
+    /* Prevents the weather numbers from getting cut off with '...' */
+    div[data-testid="stMetricValue"] > div {
+        white-space: normal !important; 
+        font-size: 1.6rem !important;
+        line-height: 1.2 !important;
     }
     
-    /* Sleek, interactive Buttons */
+    /* Force Premium Buttons */
     .stButton>button, .stFormSubmitButton>button {
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        font-weight: 600;
+        border-radius: 8px !important;
+        background-color: #0078D7 !important;
+        color: white !important;
+        border: none !important;
+        transition: all 0.2s ease !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.5rem !important;
     }
+    
     .stButton>button:hover, .stFormSubmitButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+        background-color: #005A9E !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0px 4px 8px rgba(0,0,0,0.4) !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -84,7 +88,7 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
     st.session_state['current_agent'] = None
 
-# --- LIVE DATA FETCHING (SYNCED TO 1 HOUR FOR BETTER ACCURACY) ---
+# --- LIVE DATA FETCHING ---
 @st.cache_data(ttl=timedelta(hours=1))
 def fetch_regional_weather(lat, lon):
     try:
