@@ -11,6 +11,30 @@ from datetime import timedelta
 st.set_page_config(page_title="AGRO AGENT DASHBOARD", layout="wide")
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
+# --- UI ENTERPRISE UPGRADE (CSS INJECTION) ---
+st.markdown("""
+    <style>
+    /* Hide the Streamlit default developer menu, header, and footer */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Tighten the top padding to maximize mobile screen space */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Add a crisp, professional border to the live data metric cards */
+    div[data-testid="metric-container"] {
+        border: 1px solid rgba(150, 150, 150, 0.2);
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- GOOGLE SHEETS CONNECTION ---
 scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
          "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
@@ -66,11 +90,9 @@ def fetch_market_prices():
     except Exception:
         return {}
 
-# --- AI BACKEND (FINAL FIXES APPLIED) ---
+# --- AI BACKEND ---
 @st.cache_data(ttl=timedelta(days=1), show_spinner=False)
 def call_gemini_api(query, target_language, region, live_weather, market_context):
-    
-    # Secretly map the language so the AI understands exactly which Pidgin to use
     actual_language = "Nigerian Pidgin (Naija)" if target_language == "Pidgin English" else target_language
     
     sys_instruct = f"""
@@ -85,11 +107,7 @@ def call_gemini_api(query, target_language, region, live_weather, market_context
     5. Never cut off your response mid-sentence.
     """
     try:
-        # Removed token limits entirely so the AI is never forcefully cut off
-        model = genai.GenerativeModel(
-            'gemini-2.5-flash', 
-            system_instruction=sys_instruct
-        )
+        model = genai.GenerativeModel('gemini-2.5-flash', system_instruction=sys_instruct)
         response = model.generate_content(query)
         return response.text
     except Exception as e:
